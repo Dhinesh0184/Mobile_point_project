@@ -114,6 +114,50 @@ def deallocate_slot():
     else:
         messagebox.showinfo("Not Found", f"No active allocation found for roll {roll}.")
 
+def export_to_csv():
+    # Fetch all data from the database
+    cur.execute("SELECT * FROM mobile_records")
+    records = cur.fetchall()
+    
+    if not records:
+        messagebox.showinfo("No Data", "No records to export.")
+        return
+        
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=".csv",
+        filetypes=[("CSV Files", "*.csv")],
+        title="Save As"
+    )
+    
+    if file_path:
+        try:
+            with open(file_path, mode='w', newline='', encoding='utf-8') as file:
+                writer = csv.writer(file)
+                # Write header
+                writer.writerow(["Token Number", "Roll Number", "In-Time", "Out-Time", "Duration"])
+                
+                # Write data rows
+                for record in records:
+                    token, roll_number, in_time, out_time = record
+                    
+                    # Format times for better readability
+                    in_time_str = datetime.fromisoformat(in_time).strftime("%Y-%m-%d %H:%M:%S") if in_time else "N/A"
+                    out_time_str = datetime.fromisoformat(out_time).strftime("%Y-%m-%d %H:%M:%S") if out_time else "N/A"
+                    
+                    # Calculate duration
+                    if in_time and out_time:
+                        duration_seconds = (datetime.fromisoformat(out_time) - datetime.fromisoformat(in_time)).total_seconds()
+                        duration_str = format_duration(duration_seconds)
+                    else:
+                        duration_str = "-"
+                    
+                    writer.writerow([token, roll_number, in_time_str, out_time_str, duration_str])
+                    
+            messagebox.showinfo("Success", f"Data exported successfully to:\n{file_path}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to export: {str(e)}")
+
 # === DASHBOARD FRAME ===
 dashboard_frame = Frame(root, bg=FRAME_BG, pady=15)
 dashboard_frame.pack(fill=X, padx=20, pady=15)
@@ -131,28 +175,6 @@ mobiles_inside_val.grid(row=1, column=3, padx=10, sticky=W)
 Label(dashboard_frame, text="Avg Duration:", font=FONT, bg=FRAME_BG, fg=TEXT_COLOR).grid(row=1, column=4, padx=10, pady=5, sticky=W)
 avg_duration_val = Label(dashboard_frame, text="00:00:00", font=FONT_BOLD, bg=FRAME_BG, fg="#ff5252")
 avg_duration_val.grid(row=1, column=5, padx=10, sticky=W)
-
-def export_to_csv():
-    global data  # <-- Add this line!
-    if not data:
-        messagebox.showinfo("No Data", "No records to export.")
-        return
-    file_path = filedialog.asksaveasfilename(defaultextension=".csv",
-                                             filetypes=[("CSV Files", "*.csv")],
-                                             title="Save As")
-    if file_path:
-        try:
-            with open(file_path, mode='w', newline='') as file:
-                writer = csv.writer(file)
-                writer.writerow(["Token Number", "Roll Number", "In-Time", "Out-Time", "Duration"])
-                for record in data:
-                    in_time = record['in_time'].strftime("%Y-%m-%d %H:%M:%S")
-                    out_time = record['out_time'].strftime("%Y-%m-%d %H:%M:%S") if record['out_time'] else "N/A"
-                    duration = format_duration((record['out_time'] - record['in_time']).total_seconds()) if record['out_time'] else "-"
-                    writer.writerow([record['token'], record['roll_number'], in_time, out_time, duration])
-            messagebox.showinfo("Success", f"Data exported successfully to:\n{file_path}")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to export: {str(e)}")
 
 # === ENTRIES FRAME ===
 entries_frame = Frame(root, bg=FRAME_BG, bd=0, relief=RIDGE)
@@ -179,13 +201,13 @@ btnClear = Button(btn_frame, text="Clear Entry", width=15, font=FONT_BOLD, fg="w
 btnClear.grid(row=0, column=2, padx=10)
 btnClear.bind("<Enter>", lambda e: e.widget.config(bg="#57606f"))
 btnClear.bind("<Leave>", lambda e: e.widget.config(bg="#718093"))
+
 btnExport = Button(btn_frame, text="Export to CSV", width=15, font=FONT_BOLD,
                    fg="white", bg="#10ac84", bd=0, activebackground="#079992",
                    cursor="hand2", command=export_to_csv)
 btnExport.grid(row=0, column=3, padx=10)
 btnExport.bind("<Enter>", lambda e: e.widget.config(bg="#079992"))
 btnExport.bind("<Leave>", lambda e: e.widget.config(bg="#10ac84"))
-
 
 # === TREEVIEW FRAME ===
 tree_frame = Frame(root, bg=BG_COLOR)
